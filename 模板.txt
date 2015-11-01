@@ -1,0 +1,861 @@
+//随机数生成 
+LL random(LL n){
+	srand(time(0));
+	return (LL)((double)rand()/RAND_MAX*n+0.5);
+} 
+
+//筛素数并挑选最小素数因子 
+const int pn = 100;
+int mark[pn+1],prime[pn+1],cnt;
+void Get_Prime(int n=pn){
+	memset(mark,0,sizeof(mark));
+	cnt = 0;
+	for(int i=2; i<=n; i++){
+		if(!mark[i]) mark[i] = prime[cnt++] = i;
+		for(int j=0; j<cnt&&prime[j]*i<=n; j++){
+			mark[i*prime[j]] = prime[j];
+			if(i%prime[j] == 0) break;
+		}
+	}
+}
+
+//求所有素因子之和，需用到上面素数筛选
+int sump[pn+2];
+void Get_prime_sum(int n=pn){
+	sump[1] = 0;
+	for(int i=2; i<=n; i++){
+		int t = 1;
+		for(int j=i; j%mark[i]==0; j/=mark[i]) t *= mark[i];
+		sump[i] = mark[i]+sump[i/t];
+	}
+} 
+
+//求所有因子之和，需用到上面素数筛选
+long long sumall[pn+2]; 
+void Get_all_sum(int n=pn){
+	sumall[1] = 1;
+	for(int i=2; i<=n; i++){
+		int t = 1;
+		for(int j=i; j%mark[i]==0; j/=mark[i]) t *= mark[i];
+		if(i == t) sumall[i] = (1ll*mark[i]*i-1)/(mark[i]-1);
+		else sumall[i] = sumall[t]*sumall[i/t]; 
+	}
+}
+
+//欧拉函数+素数筛选 
+int euler[pn+2];
+void Get_Euler(int n=pn){
+	memset(euler,0,sizeof(euler));
+	euler[1] = 1;
+	cnt = 0; 
+	for(int i=2; i<=n; i++){
+		if(!euler[i]){
+			euler[i] = i-1;
+			prime[cnt++] = i;
+		} 
+		for(int j=0; j<cnt&&prime[j]*i<=n; j++){
+			if(i%prime[j]) euler[prime[j]*i] = euler[i]*(prime[j]-1);
+			else {
+				euler[prime[j]*i] = euler[i]*prime[j];
+				break;
+			}
+		}
+	}
+}
+//快速幂 
+long long quick_power(long long a,long long b,long long m){
+	long long ans = 1;
+	a %= m;
+	while(b){
+		if(b&1) ans = (ans*a)%m;
+		b >>= 1;
+		a = (a*a)%m;
+	} 
+	return ans;
+}
+//米勒罗宾素数测试 
+int Times = 100;
+bool witness(long long a,long long n){
+	long long m = n-1;
+	int j = 0;
+	while((m&1) == 0){
+		j++;m>>=1;
+	}
+	long long x = quick_power(a,m,n);
+	if(x==1 || x==n-1) return false;
+	while(j--){
+		x = (x*x)%n;
+		if(x == n-1) return false;
+	}
+	return true;
+}
+bool Miller_Rabin(long long n){
+	srand(time(0));
+	if(n < 2) return 0;
+	if(n == 2) return 1;
+	if((n&1) == 0) return 0;
+	for(int i=0; i<Times; i++){
+		long long a = random(n-2)+1;
+		if(witness(a,n)) return false; 
+	}
+	return true;
+}
+ 
+//梅森素数-卢卡斯判别
+// r(k) = r(k-1)^2 - 2 (mod M(p)), 0 < r(k) < M(p)
+//M(p) = 2^p - 1;
+//M(p)是素数当且仅当r(p-1) = 0 (mod M(p)) 
+
+//扩展欧几里得算法：ax+by=d，返回最大公约数d 
+int extend_gcd(int a,int b,int& x,int& y)
+{ 
+	int d = a;
+	if(b != 0){
+		d = extend_gcd(b,a%b,y,x);
+		y -= (a/b)*x;
+	}
+	else {
+		x = 1;y = 0;
+	}
+	return d;
+}
+
+//一元线性同余方程，需用上面扩展欧几里得算法 
+struct One_Variable_linear{
+	vector<int> ans;
+	int a,b,m;
+	One_Variable_linear(){ans.clear();}
+	void set_value(int aa,int bb,int mm){
+		a = aa;b = bb;m = mm;
+	}
+	bool solve(){//返回true代表有解，否则无解 
+		int x,y,d;
+		d = extend_gcd(a,m,x,y);
+		if(b%d) return false;
+		x = x*(b/d)%m;
+		for(int i=1; i<=d; i++){
+			y = (x+(i-1)*m/d)%m;
+			if(y < 0) y += m;
+			ans.push_back(y);
+		}
+		return true;
+	}
+} ; 
+
+//中国剩余定理，返回在M中的唯一解 
+struct CRT{
+	int a[maxn],m[maxn],n;
+	CRT(){}
+	void read(){
+		scanf("%d",&n);
+		for(int i=0; i<n; i++){
+			scanf("%d %d",&a[i],&m[i]);
+		}
+	}
+	int solve(){
+		long long M = 1,Mi;
+		int x,y,d,ans = 0;
+		for(int i=0; i<n; i++) M *= m[i];
+		for(int i=0; i<n; i++){
+			Mi = M/m[i];
+			d = extend_gcd(Mi,m[i],x,y);
+			ans = (ans+Mi*x*a[i])%M;
+		}
+		if(ans < 0) ans += M;
+		return ans;
+	}
+}; 
+
+//求原根
+bool g_test(int r,int p){
+	for(int i=0; i<a.size(); ++i){
+		if(pow_mod(r,(p-1)/a[i],p) == 1) return 0;
+	}
+	return 1;
+}
+
+int pri_root(int p){
+	int tmp = p-1;
+	a.clear();
+	for(int i=2; i*i<=tmp; ++i){
+		if(tmp%i == 0){
+			a.push_back(i);
+			while(tmp%i == 0){
+				tmp /= i;
+			}
+		}
+	}
+	if(tmp > 1) a.push_back(tmp);
+	int res = 1;
+	while(1){
+		if(g_test(res,p)) return res;
+		++res;
+	}
+}
+
+//二次剩余x^2 = a (mod p)
+int solve()
+{
+
+    int q = p-1,s = 0,r,t,c,b,z,i;
+    while((q & 1) == 0){
+        q >>= 1;
+        s++;
+    }
+    if(s == 1) return quick_power(a,(p+1)>>2,p);
+    r = quick_power(a,(q+1)>>1,p);
+    t = quick_power(a,q,p);
+    while(1){
+        z = 1 + rand()%(p-1);
+        if(quick_power(z,(p-1)>>1,p) != 1) break;
+    }
+    c = quick_power(z,q,p);
+    while(1){
+        if(t%p == 1) break;
+        for(i=1; i<=s; ++i) if(quick_power(t,1<<i,p) == 1) break;
+        b = quick_power(c,1<<(s-1-i),p);
+        r = r*b%p;
+        c = b*b%p;
+        t = c*t%p;
+        s = i;
+    }
+    return r;
+} 
+
+
+//异或矩阵的gauss消元
+int a[MAX][MAX],ans[MAX]; 
+int Gauss()
+{
+    int i,j,k,l,r;
+    for(i=0,j=0; i<n,j<n; i++,j++){
+        r = i;
+        for(k=i+1; k<n; k++)
+            if(a[k][j] > a[r][j]) r = k;
+        if(r != i){
+            for(k=j; k<=n; k++)
+                swap(a[i][k],a[r][k]);
+        }
+        if(a[i][j] == 0){
+            i--;
+            continue;
+        }
+        for(k=i+1; k<n; k++){
+            if(!a[k][j]) continue;
+            for(l=j; l<=n; l++){
+                if(a[k][l]!=a[i][l]) a[k][l] = 1;
+                else a[k][l] = 0;
+            }
+        }
+    }
+    for(int i=n-1; i>=0; i--){  
+        ans[i]=a[i][n];  
+        for(j=i+1; j<n; j++)  
+            ans[i] ^= (a[i][j]&ans[j]);  
+			//需要注意，这种求答案只适用于开关问题一类的题目 
+    } 
+    for(int i=0; i<n; i++){
+    	printf("%d\n",ans[i]);
+    }
+    for(k=i; k<n; k++)
+        if(a[k][n] != 0) return -1;
+    if(i == n) return 1;
+    return 1<<(n-i);
+}
+//一般意义下的GAUSS消元
+void Gauss()
+{
+	int m;
+	double pm,tmp;
+	for(int i=0; i<cnt; i++){
+		m = i;
+		for(int j=i+1; j<cnt; j++){
+			if(fabs(mat[j][i]) > fabs(mat[m][i])){
+				m = j;
+			}
+		} 
+		if(m != i){
+			for(int j=i; j<=cnt; j++)
+				swap(mat[i][j],mat[m][j]);
+		}
+		//或者这样直接求出解
+		x[k] /= a[k][col];
+		for (j = col + 1; j<var; j++)a[k][j] /= a[k][col];
+		a[k][col] = 1;
+		for (i = 0; i<equ; i++)
+			if (i != k){
+			x[i] -= x[k] * a[i][k];
+			for (j = col + 1; j<var; j++) a[i][j] -= a[k][j] * a[i][col];
+			a[i][col] = 0;
+		}
+		//第二种写法
+		for(int j=i+1; j<cnt; j++){
+			pm = mat[j][i]/mat[i][i];
+			for(int k=i; k<=cnt; k++){
+				tmp = mat[j][k]-pm*mat[i][k];
+				mat[j][k] = tmp;
+			}
+		}
+	}
+	for(int i=0; i<maxn; i++) ans[i] = 0;
+	for(int i=cnt-1; i>=0; i--){
+		double t = 0;
+		for(int j=i+1; j<cnt; j++){
+			t += mat[i][j]*ans[j];
+		}
+		ans[i] = (mat[i][cnt]-t)/mat[i][i];
+	}
+	//
+}
+
+//LCA_ST
+struct Edge{
+	int v,next,d;
+}edge[N];
+
+int n,m,cnt,head[N];
+int r[N],dep[N],anc[N][H],dis[N],maxh;
+
+void AddEdge(int u,int v,int c)
+{
+	edge[cnt].v = v;
+	edge[cnt].next = head[u];
+	edge[cnt].d = c;
+	head[u] = cnt++; 
+}
+
+void dfs(int root)
+{
+	for(int i=head[root]; i!=-1; i=edge[i].next){
+		int v = edge[i].v;
+		dis[v] = dis[root]+edge[i].d;
+		dep[v] = dep[root]+1;
+		anc[v][0] = root;
+		for(int j=1; j<=maxh; j++){
+			int t = anc[v][j-1];
+			anc[v][j] = anc[t][j-1];
+		}
+		dfs(v);
+	}
+}
+
+void swim(int& x,int h)
+{
+	for(int i=0; h>0; i++){
+		if(h & 1) x = anc[x][i];
+		h >>= 1;
+	}
+}
+
+int LCA(int x,int y)
+{
+	int i;
+	if(dep[x] > dep[y]) swap(x,y);
+	swim(y,dep[y]-dep[x]);
+	if(x == y) return x;
+	while(1){
+		for(int i=0; anc[x][i]!=anc[y][i]; i++);
+		if(i == 0) return anc[x][0];
+		x = anc[x][i-1];
+		y = anc[y][i-1];
+	}
+	return -1;
+}
+
+//AC自动机
+const int Z = 128;
+const int MN = 100002;
+const int maxlen = 10002;
+
+int ans[5],cnt,tot;
+
+struct ACautomation{
+	int chd[MN][Z],fail[MN],Q[MN],nn,mark[MN];
+	bool flag[505];
+	
+	void init(){
+		fail[0] = 0;
+		memset(chd[0],0,sizeof(chd[0]));
+		memset(mark,0,sizeof(mark));
+		nn = 1;
+	}
+	
+	void insert(char *a,int id){
+		int p = 0;
+		while(*a){
+			int c = *a++;
+			if(!chd[p][c]){
+				memset(chd[nn],0,sizeof(chd[nn]));
+				chd[p][c] = nn++;
+			}
+			p = chd[p][c];
+		}
+		mark[p] = id;
+	}
+	
+	void build(){
+		int *s = Q,*e = Q;
+		for(int i=0; i<Z; i++){
+			if(chd[0][i]) {
+				*e++ = chd[0][i];
+				fail[chd[0][i]] = 0;
+			}
+		}
+		while(s != e){
+			int u = *s++;
+			for(int i=0; i<Z; i++){
+				int v = chd[u][i];
+				if(v){
+					*e++ = v;
+					int t = fail[u];
+					while(t && !chd[t][i]) t = fail[t];
+					fail[v] = chd[t][i];
+				}
+			}
+		}
+	}
+	void solve(char *a){
+		cnt = 0;
+		int p = 0;
+		memset(flag,0,sizeof(flag));
+		for(int i=0; a[i]; i++){
+			int k = a[i];
+			while(chd[p][k]==0 && p!=0) 
+				p = fail[p];
+			if(chd[p][k]) p = chd[p][k];
+			int tmp = p;
+			while(tmp != 0){
+				if(mark[tmp] && !flag[mark[tmp]]){
+					ans[cnt++] = mark[tmp];
+					flag[mark[tmp]] = 1;
+				}
+				tmp = fail[tmp];
+			}
+		}
+	}
+}AC; 
+
+//Polya计数（邻接关系矩阵表示）
+#include<cstdio>
+#include<cstring>
+#include<cstdlib>
+#include<iostream>
+#include<algorithm>
+#include<cmath>
+#include<vector>
+#include<queue>
+using namespace std;
+
+const int mod = 9973;
+
+typedef pair<int,int> PII;
+
+struct Matrix{
+	int mat[65][65];
+};
+
+int n,m,k,res;
+int raw[65][65];
+vector<PII> prime;
+Matrix ans,mid,rc;
+int cnt[65];
+
+void multi(Matrix& a,Matrix& b){
+	for(int i=0; i<k; i++){
+		for(int j=0; j<k; j++){
+			rc.mat[i][j] = 0;
+			for(int l=0; l<(k>>1); l++){
+				rc.mat[i][j] += a.mat[i][l]*b.mat[l][j];
+			}
+			rc.mat[i][j] %= mod;
+			for(int l=(k>>1); l<k; l++) rc.mat[i][j] += a.mat[i][l]*b.mat[l][j];
+			rc.mat[i][j] %= mod;
+		}
+	}
+	a = rc;
+}
+
+void prime_div(int num){
+	int cnt;
+	prime.clear();
+	for(int i=2; i*i<=num; i++){
+		if(num%i == 0){
+			cnt = 0;
+			while(num%i == 0){
+				cnt++;
+				num/=i;
+			}
+			prime.push_back(make_pair(i,cnt));
+		}
+	}
+	if(num > 1) prime.push_back(make_pair(num,1));
+}
+
+int get_euler(int num){
+	int res = num;
+	for(int i=0; i<prime.size(); i++){
+		if(num%prime[i].first == 0){
+			res -= res/prime[i].first;
+		}
+	}
+	return res;
+}
+
+void quick_pow(int d){
+	for(int i=0; i<k; i++){
+		for(int j=0; j<k; j++){
+			ans.mat[i][j] = i==j ? 1 : 0;
+			mid.mat[i][j] = raw[i][j];
+		}
+	}
+	while(d){
+		if(d & 0x1) multi(ans,mid);
+		d >>= 1;
+		multi(mid,mid);
+	}
+}
+
+void dfs(int no,int val){//第no个,乘积为val 
+	if(no == prime.size()){
+		int e = get_euler(n/val); 
+		quick_pow(val);
+		int t = 0;
+		for(int i=0; i<k; i++){
+			t = (t + ans.mat[i][i])%mod;
+		}
+		res = (res + t*e)%mod;
+		return ;
+	}
+	int t = 1;
+	for(int i=0; i<=prime[no].second; i++){
+		dfs(no+1,val*t);
+		t *=  prime[no].first;
+	}
+}
+
+int extend_gcd(int a,int b,int& x,int& y){
+	int d;
+	if(b == 0){
+		x = 1;y = 0;
+		return a;
+	}
+	d = extend_gcd(b,a%b,y,x);
+	y -= (a/b)*x;
+	return d;
+} 
+
+int main()
+{
+	int a,b,t;
+	int x,y;
+	while(scanf("%d %d %d",&n,&m,&k) == 3){
+		for(int i=0; i<k; i++) scanf("%d",&cnt[i]);
+		memset(raw,0,sizeof(raw));
+		for(int i=0; i<m; i++){
+			scanf("%d %d",&a,&b);
+			raw[a-1][b-1] = cnt[b-1];
+		}
+		if(n == 1){
+			res = 0;
+			for(int i=0; i<k; i++){
+				res = (res + cnt[i])%mod;
+			}
+			printf("%d\n",res);continue;
+		}
+		prime_div(n);
+		res = 0;
+		t = 1;
+		for(int i=0; i<=prime[0].second; i++){
+			dfs(1,t);
+			t *= prime[0].first;
+		}
+		extend_gcd(n,mod,x,y);
+//		printf("%d\n",x);
+		res = (res * x)%mod;
+		res = (res + mod)%mod;
+		printf("%d\n",res);
+	}
+	return 0;
+}
+
+//FFT
+typedef complex<double> Comp;
+
+const Comp I(0, 1);
+
+const int MAX_N = 1 << 20;
+Comp tmp[MAX_N];
+void DFT(Comp*a, int n, int rev) {
+	if (n == 1)
+		return;
+	for (int i = 0; i < n; ++i) {
+		tmp[i] = a[i];
+	}
+	for (int i = 0; i < n; ++i) {
+		if (i & 1)
+			a[n / 2 + i / 2] = tmp[i];
+		else
+			a[i / 2] = tmp[i];
+	}
+	Comp*a0 = a, *a1 = a + n / 2;
+	DFT(a0, n / 2, rev);
+	DFT(a1, n / 2, rev);
+	Comp cur(1, 0);
+	double alpha = 2 * M_PI / n * rev;
+	Comp step = exp(I * alpha);
+	for (int k = 0; k < n / 2; ++k) {
+		tmp[k] = a0[k] + cur * a1[k];
+		tmp[k + n / 2] = a0[k] - cur * a1[k];
+		cur *= step;
+	}
+	for (int i = 0; i < n; ++i) {
+		a[i] = tmp[i];
+	}
+}
+
+const double eps = 1e-8;
+const double pi = acos(-1.0);
+
+int dbcmp(double x){
+	if (x > eps) return 1;
+	if (x < -eps) return -1;
+	return 0;
+}
+
+struct Point {
+	double x, y;
+	Point(){}
+	Point(double a, double b) :x(a), y(b){}
+	void input(){
+		scanf("%lf%lf", &x, &y);
+	}
+	friend bool operator < (const Point &a, const Point &b){
+		return dbcmp(a.x - b.x) < 0 || (dbcmp(a.x - b.x) == 0 && dbcmp(a.y - b.y) < 0);
+	}
+	friend Point operator + (const Point &a, const Point &b){
+		return Point(a.x + b.x, a.y + b.y);
+	}
+	friend Point operator - (const Point &a, const Point &b){
+		return Point(a.x - b.x, a.y - b.y);
+	}
+	friend bool operator == (const Point &a, const Point &b){
+		return dbcmp(a.x - b.x) == 0 && dbcmp(a.y - b.y) == 0;
+	}
+	friend Point operator * (const Point &a, const double &b){
+		return Point(a.x*b, a.y*b);
+	}
+	friend Point operator * (const double &a, const Point &b){
+		return Point(a*b.x, a*b.y);
+	}
+	friend Point operator /(const Point &a, const double &b){
+		return Point(a.x / b, a.y / b);
+	}
+	double getLength(){
+		return sqrt(x*x + y*y);
+	}
+};
+
+double det(const Point &a, const Point &b){
+	return a.x*b.y - a.y*b.x;
+}
+
+double dot(const Point &a, const Point &b){
+	return a.x*b.x + a.y*b.y;
+}
+
+double dist(const Point &a, const Point &b){
+	return (a - b).getLength();
+}
+
+//点或者向量的旋转
+Point rotate_point(const Point &a, double A){
+	double tx = a.x, ty = a.y;
+	return Point(tx*cos(A) - ty*sin(A), tx*sin(A) + ty*cos(A));
+}
+
+//p位点集，ch为凸包上的点集，n为点的数量，返回凸包上的点的个数
+int converxHull(Point *p, int n, Point *ch){
+	sort(p, p + n);
+	int m = 0;
+	for (int i = 0; i < n; ++i){
+		while (m > 1 && dbcmp(det(ch[m - 1] - ch[m - 2], p[i] - ch[m - 2])) <= 0) --m;
+		ch[m++] = p[i];
+	}
+	int k = m;
+	for (int i = n - 2; i >= 0; --i){
+		while (m > k && dbcmp(det(ch[m - 1] - ch[m - 2], p[i] - ch[m - 2])) <= 0) --m;
+		ch[m++] = p[i];
+	}
+
+	if (n > 1) --m;
+	return m;
+}
+
+struct Line{
+	Point a, b;
+	Line(){}
+	Line(Point _a, Point _b) :a(_a), b(_b){}
+};
+
+//两点生成一条直线
+Line point_make_line(const Point a, const Point b){
+	return Line(a, b);
+}
+
+//点到线段的距离P---->ST
+double dis_point_segment(const Point p, const Point s, const Point t){
+	if (dbcmp(dot(p - s, t - s)) < 0) return (p - s).getLength();
+	if (dbcmp(dot(p - t, s - t)) < 0) return (p - t).getLength();
+	return fabs(det(s - p, t - p) / dist(s, t));
+}
+
+//点P在直线ST上的投影，保存在cp中
+void projection_point_line(const Point p, const Point s, const Point t, Point &cp){
+	double r = dot((t - s), (p - s)) / dot(t - s, t - s);
+	cp = s + r*(t - s);
+}
+
+//点P是否在线段ST上
+bool is_point_on_segment(const Point p, const Point s, const Point t){
+	return dbcmp(det(p - s, t - s)) == 0 && dbcmp(dot(p - s, p - t)) <= 0;
+}
+
+//两条直线是否平行，重合也算作平行，重合返回-1，平行返回0，相交返回1
+int parallel(Line a, Line b){
+	int x = dbcmp(det(a.a - a.b, b.a - b.b));
+	if (x) return 1;
+	x = dbcmp(det(a.a - b.a, a.a - b.b));
+	if (x == 0) return -1;
+	return 0;
+}
+
+//两条直线的交点，调用前保证相交
+void line_make_point(Line a, Line b, Point &res){
+	double s1 = det(a.a - b.a, b.b - b.a);
+	double s2 = det(a.b - b.a, b.b - b.a);
+	res = (s1*a.b - s2*a.a) / (s1 - s2);
+}
+
+//两条线段的交点,返回1表示规范相交，0不相交，-1部分重合, 未考虑只有端点重合的情况
+int segment_make_point(Line a, Line b, Point &res){
+	int c1, c2, c3, c4;
+	c1 = dbcmp(det(a.a - b.a, b.b - b.a));
+	c2 = dbcmp(det(a.b - b.a, b.b - b.a));
+	c3 = dbcmp(det(b.a - a.a, a.b - a.a));
+	c4 = dbcmp(det(b.b - a.a, a.b - a.a));
+	if (c1*c2 < 0 && c3*c4 < 0){//规范相交
+		line_make_point(a, b, res);
+		return 1;
+	}
+	int state;
+	if ((state = parallel(a, b)) == -1){//部分重合
+		if (is_point_on_segment(a.a, b.a, b.b) || is_point_on_segment(a.b, b.a, b.b))
+			return -1;
+	}
+	if (state == 1){
+		bool flag = 0;
+		if (is_point_on_segment(a.a, b.a, b.b)) res = a.a, flag = 1;
+		else if (is_point_on_segment(a.b, b.a, b.b)) res = a.b, flag = 1;
+		else if (is_point_on_segment(b.a, a.a, a.b)) res = b.a, flag = 1;
+		else if (is_point_on_segment(b.b, a.a, a.b)) res = b.b, flag = 1;
+		if (flag) return 1;
+	}
+	return 0;
+}
+
+//直线平移距离len
+Line move_d(Line a, const double &len){
+	Point d = a.b - a.a;
+	d = d / d.getLength();
+	d = rotate_point(d, pi / 2);
+	return Line(a.a + d*len, a.b + d*len);
+}
+
+//点p是否在多边形poly中，-1表示在边界上，0---外部，1---内部
+int is_point_in_polygon(Point p, Point *poly, int n){
+	int w = 0;
+	for (int i = 0; i < n; ++i){
+		if (is_point_on_segment(p, poly[i], poly[(i + 1) % n])) return -1;
+		int d1 = dbcmp(poly[i].y - p.y);
+		int d2 = dbcmp(poly[(i + 1) % n].y - p.y);
+		int k = dbcmp(det(poly[(i + 1) % n] - poly[i], p - poly[i]));
+		if (k>0 && d1 <= 0 && d2 > 0) ++w;
+		if (k < 0 && d1>0 && d2 <= 0) --w;
+	}
+	if (w != 0) return 1;
+	return 0;
+}
+
+double convex_diameter(Point *p, int n, int &First, int &Second){
+	double maxd = 0;
+	if (n == 1){
+		First = Second = 0;
+		return maxd;
+	}
+	#define next(i) ((i+1)%n)
+	for (int i = 0, j = 1; i < n; ++i){
+		while (dbcmp(det(p[next(i)] - p[i], p[j] - p[i]) - det(p[next(i)] - p[i], p[next(j)] - p[i])) < 0){
+			j = next(j);
+		}
+		double d = dist(p[i], p[j]);
+		if (d > maxd){
+			maxd = d;
+			First = i; Second = j;
+		}
+		d = dist(p[next(i)], p[next(j)]);
+		if (d > maxd){
+			maxd = d;
+			First = next(i);
+			Second = next(j);
+		}
+	}
+	return maxd;
+}
+
+//返回凸包的最小矩形覆盖
+double min_rectangle_cover(Point *p, int n){
+	if (n < 3) return 0;
+	p[n] = p[0];
+	double ans = 1e50;
+	int l, r, o;
+	o = 1;
+	r = 1;
+	for (int i = 0; i < n; ++i){
+		//卡出距离P[i]P[i+1]最远的点
+		while (dbcmp(det(p[i + 1] - p[i], p[o + 1] - p[i]) - det(p[i + 1] - p[i], p[o] - p[i])) >= 0)
+			o = (o + 1) % n;
+		//卡出最右边的点
+		while (dbcmp(dot(p[i + 1] - p[i], p[r + 1] - p[i]) - dot(p[i + 1] - p[i], p[r] - p[i])) >= 0)
+			r = (r + 1) % n;
+		if (i == 0) l = r;
+
+		while (dbcmp(dot(p[i + 1] - p[i], p[l + 1] - p[i]) - dot(p[i + 1] - p[i], p[l] - p[i])) <= 0)
+			l = (l + 1) % n;
+		double d = dist(p[i], p[i + 1]);
+		
+		double H = det(p[i + 1] - p[i], p[o] - p[i]) / d;
+		double L = dot(p[i + 1] - p[i], p[r] - p[i]) / d - dot(p[i + 1] - p[i], p[l] - p[i]) / d;
+		ans = min(ans, fabs(L*H));
+	}
+	return ans;
+}
+
+const int maxn = 1005;
+
+Point ps[maxn];
+Point tb[maxn];
+int n, nn;
+
+int main() {
+	static Comp a[1 << 20] = { }, b[1 << 20] = { };
+	int n = 1 << 20;
+	DFT(a, n, 1);
+	DFT(b, n, 1);
+	for (int i = 0; i < n; ++i) {
+		a[i] *= b[i];
+	}
+	DFT(a, n, -1);
+	for (int i = 0; i < n; ++i) {
+		a[i] /= n;
+	}
+}
